@@ -1,3 +1,4 @@
+from distutils.ccompiler import gen_lib_options
 import random
 import os
 import time
@@ -7,8 +8,6 @@ class Map:
     A Map object holds the 'field'/setup of a specific game.
     Inputs: seed (int), boardSize (int), foodPerc (float, between 0 and 1)
     Output: Map object
-
-    Idea: create a long string representing the map, then break it down into a 2d square array.
     0=empty, 1=food, 2=wall.
     '''
     def __init__(self, seed, boardSize, foodPerc) -> None:
@@ -41,6 +40,19 @@ class Player:
             gene= "".join(str(i) for i in genelist)
         self.gene=gene
 
+    def reproduce(self, partner:str, nChildren:int, nMutations):
+        partnergene=partner
+        children=[]
+        for i in range(nChildren):
+            crossPoint = random.randint(0,242)
+            child = Player(gene=self.gene[:crossPoint]+partner[crossPoint:])
+            actualMutations=random.randint(0,int(nMutations))
+            for mut in range(actualMutations):
+                mutpt=random.randint(0,242)
+                child =  child[:mutpt-1] + random.choice(['0','1','2','3','5']) + child[(mutpt):]
+            children.append(child)
+        return children
+
 class Game:
     '''
     Each instance of Game holds the mechanics to run a given gene through a given map.
@@ -50,6 +62,7 @@ class Game:
     def __init__(self, turns:int, player:Player, map:Map, printing:bool=False) -> None:
         self.turns=turns
         assert(len(player.gene) == 243)
+        self.player = player
         self.gene=player.gene
         self.print=printing
         self.score=0
@@ -84,7 +97,7 @@ class Game:
             
             if action in [0,1,2,3,4]: #tried to move or stay put
                 if self.field[new[0]][new[1]] == 2: #new pos is wall
-                    self.score -= 1 #minus point
+                    self.score -= 0.1 #minus point
                 else:
                     curr=new #move to new pos
             elif action == 5: #tried to eat
@@ -92,7 +105,7 @@ class Game:
                     self.score +=1
                     self.field[curr[0]][curr[1]] = 0 #remove food from that field space.
                 elif around[4]==0:
-                    self.score -= 1 #tried to eat where there was no food
+                    self.score -= 0.1 #tried to eat where there was no food
             turn += 1
             
             if (self.print):
@@ -112,7 +125,7 @@ class Game:
                     print()
                 time.sleep(0.2)
         if self.print == False:
-            return(self.score)
+            return(self)
             '''
                   ☐   
                 W F ☐  
@@ -125,6 +138,19 @@ class Game:
                 Range of this function:
                 0 <= int('str', base=3) <= 241
             '''
+class SimState:
+    def __init__(self, seed:int, boardSize:int, foodPerc:float, popSize:int, turns:int) -> None:
+        self.gen=0
+        self.map=Map(seed,boardSize,foodPerc)
+        self.players=[Player() for i in range(popSize)] #randomly creates genes
+        self.games=[Game(turns, player, map) for player in self.players] #create games based on the map and players provided
+        self.allGenHigh=0
+        self.currGenHigh=0
+    
+    # def update(self, map:Map, gen:int, games:list, players:list, allGenHigh:float, currGenHigh:float):
+
+
+
 
 
 

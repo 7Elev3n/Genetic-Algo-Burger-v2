@@ -7,13 +7,19 @@ import multiprocessing as mp # To split running simulation across all CPU cores
 import time
 
 #Manual parameters
-popSize = 10
 scorefile = "zscores.csv"
 foodPerc = 30
-seed = random.randint(0,999999)
+seed = 512 #random.randint(0,999999)
 boardSize=5
 foodPerc=0.3
-turns=100
+
+#evolution params
+turns=20
+popSize = 2000 #typically contains several hundreds or thousands of possible solutions
+mutations = 0.15
+bestToRemain = 0.1
+inequity = 0.1 # set between 0 and 1. "0.2" means that a bot doing 100 points better than others gets a 20 times higher chance to be a parent.
+childPerCouple = 0.10 #all couples get to make 10% of whatever space is left in the population by the time their turn arrives.
 
 def evol():
     # tracker vars
@@ -24,35 +30,43 @@ def evol():
     # operational vars
     map = MyCla.Map(seed,boardSize,foodPerc)
     players = [MyCla.Player() for i in range(popSize)] #randomly creates genes
-    games = [MyCla.Game(turns, player, map) for player in players] #create games based on the map and players provided
     test=True
+    
     while test:
-        test=False
+        #test=False #run it once only
+        games = [MyCla.Game(turns, player, map) for player in players] #create games based on the map and players provided
+
         #multiprocess runner
-        st = time.time()
         p = mp.Pool(int(mp.cpu_count()))
-        fastRes = p.map(MyCla.Game.runGame, games)
+        finGames = p.map(MyCla.Game.runGame, games)
         p.close()
         p.join()
-        print(fastRes)
+        sortedGames = sorted(finGames, key=lambda x: x.score, reverse=True) # descending
+        currGenHigh = sortedGames[0].score
+        if currGenHigh > allGenHigh: allGenHigh = currGenHigh
 
+        # genetic algo
+        newGen = []
+        # keep some elites
+        for n in range(round(bestToRemain*popSize)):
+            newGen.append(sortedGames[n].player)
+        # Find and weight parents in a list based on their relative performance
+        offset = sortedGames[-1].score
+        weights = [round((player.score-offset)*inequity)+1 for player in sortedGames]
+        parentsGameList = random.sample(sortedGames, popSize, counts=weights)
 
-        # st4 = time.time()
-        # for n in range(loops):
-        #     p = mp.Pool(int(mp.cpu_count()))
-        #     futures = [p.map_async(t.runGame,()) for t in games]
-        #     p.close()
-        #     p.join()
-        #     #result = [fut.get() for fut in futures]
-        # t4=time.time()- st4
-        # print (t4)
-        
-        #print(futures)
-        #result = [fut.get() for fut in futures]
-        #result = p.map([game.runGame for game in games], ())
-
-        #print(futures)
-
+        while len(newGen) < popSize:
+            nChild = round(childPerCouple*(popSize-len(newGen)))+1
+            player1 = parentsGameList[0].player
+            gene2 = random.choice(parentsGameList).gene
+            newGen.extend(player1.reproduce(gene2, nChildren=nChild, nMutations=mutations))
+            del(parentsGameList[0])
+        players=newGen
+        print("Current Generation:", gen)
+        print("Current Generation Top: ", currGenHigh)
+        print("All Generation Top: ", allGenHigh)
+        print("---------")
+        gen+=1
 if __name__ == '__main__':
     evol()
 # map1=Map(seed=512,boardSize=5,foodPerc=0.3)
