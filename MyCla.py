@@ -29,6 +29,17 @@ class Map:
             (start, end) = ((self.size)*i,(self.size)*(i+1))
             self.field.append([2]+noWallList[start:end]+[2])
         self.field.append([2]*(self.size+2))
+class Player:
+    '''
+    Holds the gene, and reproductive functions.
+    Inputs: reproductive parameters
+    '''
+    def __init__(self,gene=0) -> None:
+        if gene == 0:
+            #assume this is a new gene line
+            genelist = random.choices(range(0,6),k=243)
+            gene= "".join(str(i) for i in genelist)
+        self.gene=gene
 
 class Game:
     '''
@@ -36,26 +47,26 @@ class Game:
     Inputs: map (obj of 'Map' class), gene (str), turns (int), printing (bool)
     Outputs: score, and (optional) printing of a rerun of the game
     '''
-    def __init__(self, turns:int, gene:str, printing:bool=False) -> None:
+    def __init__(self, turns:int, player:Player, map:Map, printing:bool=False) -> None:
         self.turns=turns
-        assert(len(gene) == 243)
-        self.gene=gene
+        assert(len(player.gene) == 243)
+        self.gene=player.gene
         self.print=printing
         self.score=0
+        self.field=map.field
+        self.size=map.size
+        self.seed=random.seed(map.seed)
 
-    def runGame(self, map:Map):
+    def runGame(self):
         turn=0
-        
-        field=map.field
-        random.seed(map.seed)
-        curr=(random.randint(1,map.size+1),random.randint(1,map.size+1)) #(row,col), start on row 1, col 1. (row 0 col0 is wall)
+        curr=(random.randint(1,(self.size)-1),random.randint(1,(self.size)-1)) #(row,col), start on row 1, col 1. (row 0 col0 is wall)
         while (turn < self.turns):
             around=[
-                field[curr[0]-1][curr[1]+0], #north
-                field[curr[0]+0][curr[1]+1], #east
-                field[curr[0]+1][curr[1]+0], #south
-                field[curr[0]+0][curr[1]-1], #west
-                field[curr[0]+0][curr[1]+0], #center
+                self.field[curr[0]-1][curr[1]+0], #north
+                self.field[curr[0]+0][curr[1]+1], #east
+                self.field[curr[0]+1][curr[1]+0], #south
+                self.field[curr[0]+0][curr[1]-1], #west
+                self.field[curr[0]+0][curr[1]+0], #center
             ]
             strAround = "".join(str(x) for x in around)
             action = int(self.gene[int(strAround, base=3)])
@@ -72,14 +83,14 @@ class Game:
                     new=curr
             
             if action in [0,1,2,3,4]: #tried to move or stay put
-                if field[new[0]][new[1]] == 2: #new pos is wall
+                if self.field[new[0]][new[1]] == 2: #new pos is wall
                     self.score -= 1 #minus point
                 else:
                     curr=new #move to new pos
             elif action == 5: #tried to eat
                 if around[4] == 1: #tile has food, give point
                     self.score +=1
-                    field[curr[0]][curr[1]] = 0 #remove food from that field space.
+                    self.field[curr[0]][curr[1]] = 0 #remove food from that field space.
                 elif around[4]==0:
                     self.score -= 1 #tried to eat where there was no food
             turn += 1
@@ -87,7 +98,7 @@ class Game:
             if (self.print):
                 os.system('cls')
                 print("Turn", turn, "Score", self.score)
-                for row, rowdata in enumerate(field):
+                for row, rowdata in enumerate(self.field):
                     for col, itm in enumerate(rowdata):
                         if row == curr[0] and col == curr[1]:
                             print("X", end=" ")
@@ -101,7 +112,7 @@ class Game:
                     print()
                 time.sleep(0.2)
         if self.print == False:
-            print(self.score)
+            return(self.score)
             '''
                   ☐   
                 W F ☐  
@@ -117,14 +128,12 @@ class Game:
 
 
 
-
-
-map1=Map(seed=512,boardSize=5,foodPerc=0.3)
-game1=Game(
-    10, '154354054254254254354354054154154154154154254154354154254354224254254224354354004054354054254254054054354054154154054154154054154354054054054004254254254354354054154354154124254254114114114154154154254254154114114114254354224254354254224224224',
-    True
-)
-game1.runGame(map1)    
+# map1=Map(seed=512,boardSize=5,foodPerc=0.3)
+# game1=Game(
+#     10, '154354054254254254354354054154154154154154254154354154254354224254254224354354004054354054254254054054354054154154054154154054154354054054054004254254254354354054154354154124254254114114114154154154254254154114114114254354224254354254224224224',
+#     True
+# )
+# game1.runGame(map1)    
         
         
 
