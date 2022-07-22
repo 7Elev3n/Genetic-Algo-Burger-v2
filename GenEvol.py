@@ -30,9 +30,12 @@ def evol():
     # operational vars
     map = MyCla.Map(seed,boardSize,foodPerc)
     players = [MyCla.Player() for i in range(popSize)] #randomly creates genes
-    test=True
+    running=True
     
-    while test:
+    while running:
+                
+
+
         #test=False #run it once only
         games = [MyCla.Game(turns, player, map) for player in players] #create games based on the map and players provided
 
@@ -67,6 +70,8 @@ def evol():
         print("All Generation Top: ", allGenHigh)
         print("---------")
         gen+=1
+
+
 if __name__ == '__main__':
     evol()
 # map1=Map(seed=512,boardSize=5,foodPerc=0.3)

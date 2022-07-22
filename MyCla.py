@@ -2,6 +2,8 @@ from distutils.ccompiler import gen_lib_options
 import random
 import os
 import time
+import pickle
+import csv
 
 class Map:
     '''
@@ -36,7 +38,7 @@ class Player:
     def __init__(self,gene=0) -> None:
         if gene == 0:
             #assume this is a new gene line
-            genelist = random.choices(range(0,6),k=243)
+            genelist = random.SystemRandom().choices(range(0,6),k=243)
             gene= "".join(str(i) for i in genelist)
         self.gene=gene
 
@@ -44,12 +46,12 @@ class Player:
         partnergene=partner
         children=[]
         for i in range(nChildren):
-            crossPoint = random.randint(0,242)
+            crossPoint = random.SystemRandom().randint(0,242)
             child = Player(gene=self.gene[:crossPoint]+partner[crossPoint:])
-            actualMutations=random.randint(0,int(nMutations))
+            actualMutations=random.SystemRandom().randint(0,int(nMutations))
             for mut in range(actualMutations):
-                mutpt=random.randint(0,242)
-                child =  child[:mutpt-1] + random.choice(['0','1','2','3','5']) + child[(mutpt):]
+                mutpt=random.SystemRandom().randint(0,242)
+                child =  child[:mutpt-1] + random.SystemRandom().choice(['0','1','2','3','5']) + child[(mutpt):]
             children.append(child)
         return children
 
@@ -140,15 +142,40 @@ class Game:
             '''
 class SimState:
     def __init__(self, seed:int, boardSize:int, foodPerc:float, popSize:int, turns:int) -> None:
-        self.gen=0
-        self.map=Map(seed,boardSize,foodPerc)
-        self.players=[Player() for i in range(popSize)] #randomly creates genes
-        self.games=[Game(turns, player, map) for player in self.players] #create games based on the map and players provided
-        self.allGenHigh=0
-        self.currGenHigh=0
+        #if pickle file present, load from there and return. else regenerate new.
+        if os.path.exists('savefile.pkl') and input("Savefile found. Resume? Y/N") in ["yes", "Yes", "Y", "y"]:
+            with open('savefile.pkl', 'wb') as savefile:
+                self = pickle.load(self, savefile, pickle.HIGHEST_PROTOCOL)
+        else:
+            self.gen=0
+            self.map=Map(seed,boardSize,foodPerc)
+            self.players=[Player() for i in range(popSize)] #randomly creates genes
+            self.games=[Game(turns, player, map) for player in self.players] #create games based on the map and players provided
+            self.allGenHigh=0
+            self.currGenHigh=0
     
-    # def update(self, map:Map, gen:int, games:list, players:list, allGenHigh:float, currGenHigh:float):
+    def update(self, map:Map, gen:int, games:list, players:list, allGenHigh:float, currGenHigh:float):
+        self.map = map
+        self.gen = gen
+        self.games = games
+        self.players = players
+        self.allGenHigh = allGenHigh
+        self.currGenHigh = currGenHigh
 
+    def save(self):
+        with open('savefile.pkl', 'wb') as savefile:
+            pickle.dump(self, savefile, pickle.HIGHEST_PROTOCOL)
+    
+    def track(self):
+        with open("scorefile.csv", "a+", newline='',) as scorefile:
+            #Collect all stateVars and turn into dict so it can be auto populated into csv by DictWriter
+            allStateVars = [attr for attr in dir(self) if not callable(getattr(self, attr)) and not attr.startswith("__")]
+            allValues = [getattr(self, stateVar) for stateVar in allStateVars]
+            dictToWrite = dict(zip(allStateVars, allValues))
+            writer = csv.DictWriter(scorefile,fieldnames=allStateVars)
+            writer.writerow(dictToWrite)
+        
+            
 
 
 
