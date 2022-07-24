@@ -154,13 +154,10 @@ class SimState:
             self.allGenHigh=0
             self.currGenHigh=0
     
-    def update(self, map:Map, gen:int, games:list, players:list, allGenHigh:float, currGenHigh:float):
+    def update(self, map:Map, players:list, allGenHigh:float, currGenHigh:float):
+        # self.gen, allgenhigh, and currgenhigh to be updated by calling directly.
         self.map = map
-        self.gen = gen
-        self.games = games
         self.players = players
-        self.allGenHigh = allGenHigh
-        self.currGenHigh = currGenHigh
 
     def save(self):
         with open('savefile.pkl', 'wb') as savefile:

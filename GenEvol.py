@@ -21,32 +21,31 @@ bestToRemain = 0.1
 inequity = 0.1 # set between 0 and 1. "0.2" means that a bot doing 100 points better than others gets a 20 times higher chance to be a parent.
 childPerCouple = 0.10 #all couples get to make 10% of whatever space is left in the population by the time their turn arrives.
 
-def evol():
-    # tracker vars
-    gen = 0
-    allGenHigh = 0
-    currGenHigh = 0
-    
+def evol():    
     # operational vars
-    map = MyCla.Map(seed,boardSize,foodPerc)
-    players = [MyCla.Player() for i in range(popSize)] #randomly creates genes
     running=True
     
-    while running:
-                
-
-
+    # create simState before while loop. Its __init__ function will 
+    # handle reloading OR recreating map, players, and games.
+    # Savefile should be 'savefile.pkl', in the working directory. 
+    sim = MyCla.SimState(
+        seed=seed,
+        boardSize=boardSize,
+        foodPerc=foodPerc,
+        popSize=popSize,
+        turns=turns
+    )     
+    while running: 
         #test=False #run it once only
-        games = [MyCla.Game(turns, player, map) for player in players] #create games based on the map and players provided
 
         #multiprocess runner
         p = mp.Pool(int(mp.cpu_count()))
-        finGames = p.map(MyCla.Game.runGame, games)
+        finGames = p.map(MyCla.Game.runGame, sim.games)
         p.close()
         p.join()
         sortedGames = sorted(finGames, key=lambda x: x.score, reverse=True) # descending
-        currGenHigh = sortedGames[0].score
-        if currGenHigh > allGenHigh: allGenHigh = currGenHigh
+        sim.currGenHigh = sortedGames[0].score
+        if sim.currGenHigh > sim.allGenHigh: sim.allGenHigh = sim.currGenHigh
 
         # genetic algo
         newGen = []
@@ -64,13 +63,24 @@ def evol():
             gene2 = random.choice(parentsGameList).gene
             newGen.extend(player1.reproduce(gene2, nChildren=nChild, nMutations=mutations))
             del(parentsGameList[0])
-        players=newGen
-        print("Current Generation:", gen)
-        print("Current Generation Top: ", currGenHigh)
-        print("All Generation Top: ", allGenHigh)
-        print("---------")
-        gen+=1
 
+        #simState things
+        # update simState with what happened this round
+        sim.gen+=1
+        sim.update(
+            map=sim.map,
+            players=newGen
+        )
+        # save the updated simState for resumption next time
+        sim.save()
+        # track progress via simState.
+        sim.track()
+
+        print("Current Generation:", sim.gen)
+        print("Current Generation Top: ", sim.currGenHigh)
+        print("All Generation Top: ", sim.allGenHigh)
+        print("---------")
+        
 
 if __name__ == '__main__':
     evol()
