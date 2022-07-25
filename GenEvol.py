@@ -33,10 +33,14 @@ def evol():
         boardSize=boardSize,
         foodPerc=foodPerc,
         popSize=popSize,
-        turns=turns
+        turns=turns,
+        mutations = mutations,
+        bestToRemain = bestToRemain,
+        inequity = inequity,
+        childPerCouple = childPerCouple
     )     
     while running: 
-        #test=False #run it once only
+        # test=False #run it once only
 
         #multiprocess runner
         p = mp.Pool(int(mp.cpu_count()))
@@ -44,8 +48,9 @@ def evol():
         p.close()
         p.join()
         sortedGames = sorted(finGames, key=lambda x: x.score, reverse=True) # descending
-        sim.currGenHigh = sortedGames[0].score
-        if sim.currGenHigh > sim.allGenHigh: sim.allGenHigh = sim.currGenHigh
+        sim.update(currGenHigh = sortedGames[0].score)
+        if sim.currGenHigh > sim.allGenHigh: 
+            sim.update(allGenHigh = sim.currGenHigh)
 
         # genetic algo
         newGen = []
@@ -67,10 +72,8 @@ def evol():
         #simState things
         # update simState with what happened this round
         sim.gen+=1
-        sim.update(
-            map=sim.map,
-            players=newGen
-        )
+        sim.update(players=newGen)
+        sim.update()
         # save the updated simState for resumption next time
         sim.save()
         # track progress via simState.

@@ -12,13 +12,13 @@ class Map:
     Output: Map object
     0=empty, 1=food, 2=wall.
     '''
-    def __init__(self, seed, boardSize, foodPerc) -> None:
+    def __init__(self, seed, boardSize, foodPerc, **kwargs) -> None:
         self.seed=seed
         random.seed(self.seed)
         self.size=boardSize
         assert(foodPerc <= 100 and foodPerc>=0)
         self.foodPerc=foodPerc
-        size2=boardSize*boardSize
+        size2=self.size*self.size
         noWallList=random.choices(
             population=[0,1],
             weights=[1-foodPerc,foodPerc],
@@ -30,6 +30,19 @@ class Map:
             (start, end) = ((self.size)*i,(self.size)*(i+1))
             self.field.append([2]+noWallList[start:end]+[2])
         self.field.append([2]*(self.size+2))
+    
+    def update(self, **kwargs):
+        '''
+        Possible attributes include: 'seed', 'size', 'foodPerc', 'field'.
+        '''
+        # Code to update self attributes via **kwargs
+        allowed_keys = {'seed', 'size', 'foodPerc', 'field'}
+        for attr, value in kwargs.items():
+            if attr in allowed_keys:
+                setattr(self, attr, value)
+            else:
+                raise Exception("'Map' instance updated with out-of-bounds attribute: "+str(attr))
+
 class Player:
     '''
     Holds the gene, and reproductive functions.
@@ -71,6 +84,18 @@ class Game:
         self.field=map.field
         self.size=map.size
         self.seed=random.seed(map.seed)
+    
+    def update(self, **kwargs):
+        '''
+        Possible attributes include: 'turns', 'player', (player) 'gene', 'print', 'score', (map) 'field', 'size', 'seed'.
+        '''
+        # Code to update self attributes via **kwargs
+        allowed_keys = {'turns', 'player', 'gene', 'print', 'score', 'field', 'size', 'seed'}
+        for attr, value in kwargs.items():
+            if attr in allowed_keys:
+                setattr(self, attr, value)
+            else:
+                raise Exception("'Game' instance updated with out-of-bounds attribute: "+str(attr))
 
     def runGame(self):
         turn=0
@@ -146,6 +171,13 @@ class SimState:
         if os.path.exists('savefile.pkl') and input("Savefile found. Resume? Y/N") in ["yes", "Yes", "Y", "y"]:
             with open('savefile.pkl', 'wb') as savefile:
                 self = pickle.load(self, savefile, pickle.HIGHEST_PROTOCOL)
+            myattrs = [x for x in  dir(self) if x[0] != "_"]
+            print("These are the attributes recovered from the savefile: ", [(x, getattr(self, x)) for x in dir(self) if x[0] != "_"])
+            print("These attributes were set to:")
+            for x in myattrs:
+                print(x, " : ", getattr(self, x))
+            if input("Should the simulation proceed? Y/N") not in ["yes", "Yes", "Y", "y"]:
+                return
         else:
             self.gen=0
             self.map=Map(seed,boardSize,foodPerc)
@@ -153,11 +185,34 @@ class SimState:
             self.games=[Game(turns, player, map) for player in self.players] #create games based on the map and players provided
             self.allGenHigh=0
             self.currGenHigh=0
+
+            myattrs = [x for x in  dir(self) if x[0] != "_"]
+            print("No save file was found. \nThese are the (new) values for this simulation's attributes: ", [(x, getattr(self, x)) for x in dir(self) if x[0] != "_"])
+            print("These attributes were set to:")
+            for x in myattrs:
+                print(x, " : ", getattr(self, x))
+            if input("Should the simulation proceed? Y/N") not in ["yes", "Yes", "Y", "y"]:
+                return
     
-    def update(self, map:Map, players:list, allGenHigh:float, currGenHigh:float):
-        # self.gen, allgenhigh, and currgenhigh to be updated by calling directly.
-        self.map = map
-        self.players = players
+    def update(self, **kwargs):
+        '''
+        Possible attributes include: 'gen', 'map', 'players' (list), 'games' (list), 'allGenHigh', 'currGenHigh'.
+        '''
+        # Code to update self attributes via **kwargs
+        allowed_keys = {'gen', 'map', 'players', 'games', 'allGenHigh', 'currGenHigh'}
+        for attr, value in kwargs.items():
+            if attr in allowed_keys:
+                setattr(self, attr, value)
+            else:
+                raise Exception("'SimState' instance updated with out-of-bounds attribute: "+str(attr))
+    
+    def update(self, **kwargs):
+        '''
+        Use this to set 'map' (if changing) and 'players'. The rest should be directly updated.
+        '''
+        # Code to update self attributes via **kwargs
+        for attr, value in kwargs.items():
+            setattr(self, attr, value)
 
     def save(self):
         with open('savefile.pkl', 'wb') as savefile:
@@ -172,11 +227,6 @@ class SimState:
             writer = csv.DictWriter(scorefile,fieldnames=allStateVars)
             writer.writerow(dictToWrite)
         
-            
-
-
-
-
 
 # map1=Map(seed=512,boardSize=5,foodPerc=0.3)
 # game1=Game(
