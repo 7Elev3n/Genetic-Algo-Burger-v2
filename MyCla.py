@@ -1,9 +1,6 @@
-from distutils.ccompiler import gen_lib_options
 import random
 import os
 import time
-import pickle
-import csv
 
 class Map:
     '''
@@ -12,7 +9,7 @@ class Map:
     Output: Map object
     0=empty, 1=food, 2=wall.
     '''
-    def __init__(self, seed, boardSize, foodPerc, **kwargs) -> None:
+    def __init__(self, seed, boardSize, foodPerc) -> None:
         self.seed=seed
         random.seed(self.seed)
         self.size=boardSize
@@ -74,16 +71,16 @@ class Game:
     Inputs: map (obj of 'Map' class), gene (str), turns (int), printing (bool)
     Outputs: score, and (optional) printing of a rerun of the game
     '''
-    def __init__(self, turns:int, player:Player, map:Map, printing:bool=False) -> None:
+    def __init__(self, turns:int, player:Player, mymap:Map, printing:bool=False) -> None:
         self.turns=turns
         assert(len(player.gene) == 243)
         self.player = player
         self.gene=player.gene
         self.print=printing
         self.score=0
-        self.field=map.field
-        self.size=map.size
-        self.seed=random.seed(map.seed)
+        self.field=mymap.field
+        self.size=mymap.size
+        self.seed=random.seed(mymap.seed)
     
     def update(self, **kwargs):
         '''
@@ -165,69 +162,6 @@ class Game:
                 Range of this function:
                 0 <= int('str', base=3) <= 241
             '''
-class SimState:
-    def __init__(self, seed:int, boardSize:int, foodPerc:float, popSize:int, turns:int) -> None:
-        #if pickle file present, load from there and return. else regenerate new.
-        if os.path.exists('savefile.pkl') and input("Savefile found. Resume? Y/N") in ["yes", "Yes", "Y", "y"]:
-            with open('savefile.pkl', 'wb') as savefile:
-                self = pickle.load(self, savefile, pickle.HIGHEST_PROTOCOL)
-            myattrs = [x for x in  dir(self) if x[0] != "_"]
-            print("These are the attributes recovered from the savefile: ", [(x, getattr(self, x)) for x in dir(self) if x[0] != "_"])
-            print("These attributes were set to:")
-            for x in myattrs:
-                print(x, " : ", getattr(self, x))
-            if input("Should the simulation proceed? Y/N") not in ["yes", "Yes", "Y", "y"]:
-                return
-        else:
-            self.gen=0
-            self.map=Map(seed,boardSize,foodPerc)
-            self.players=[Player() for i in range(popSize)] #randomly creates genes
-            self.games=[Game(turns, player, map) for player in self.players] #create games based on the map and players provided
-            self.allGenHigh=0
-            self.currGenHigh=0
-
-            myattrs = [x for x in  dir(self) if x[0] != "_"]
-            print("No save file was found. \nThese are the (new) values for this simulation's attributes: ", [(x, getattr(self, x)) for x in dir(self) if x[0] != "_"])
-            print("These attributes were set to:")
-            for x in myattrs:
-                print(x, " : ", getattr(self, x))
-            if input("Should the simulation proceed? Y/N") not in ["yes", "Yes", "Y", "y"]:
-                return
-    
-    def update(self, **kwargs):
-        '''
-        Possible attributes include: 'gen', 'map', 'players' (list), 'games' (list), 'allGenHigh', 'currGenHigh'.
-        '''
-        # Code to update self attributes via **kwargs
-        allowed_keys = {'gen', 'map', 'players', 'games', 'allGenHigh', 'currGenHigh'}
-        for attr, value in kwargs.items():
-            if attr in allowed_keys:
-                setattr(self, attr, value)
-            else:
-                raise Exception("'SimState' instance updated with out-of-bounds attribute: "+str(attr))
-    
-    def update(self, **kwargs):
-        '''
-        Use this to set 'map' (if changing) and 'players'. The rest should be directly updated.
-        '''
-        # Code to update self attributes via **kwargs
-        for attr, value in kwargs.items():
-            setattr(self, attr, value)
-
-    def save(self):
-        with open('savefile.pkl', 'wb') as savefile:
-            pickle.dump(self, savefile, pickle.HIGHEST_PROTOCOL)
-    
-    def track(self):
-        with open("scorefile.csv", "a+", newline='',) as scorefile:
-            #Collect all stateVars and turn into dict so it can be auto populated into csv by DictWriter
-            allStateVars = [attr for attr in dir(self) if not callable(getattr(self, attr)) and not attr.startswith("__")]
-            allValues = [getattr(self, stateVar) for stateVar in allStateVars]
-            dictToWrite = dict(zip(allStateVars, allValues))
-            writer = csv.DictWriter(scorefile,fieldnames=allStateVars)
-            writer.writerow(dictToWrite)
-        
-
 # map1=Map(seed=512,boardSize=5,foodPerc=0.3)
 # game1=Game(
 #     10, '154354054254254254354354054154154154154154254154354154254354224254254224354354004054354054254254054054354054154154054154154054154354054054054004254254254354354054154354154124254254114114114154154154254254154114114114254354224254354254224224224',
