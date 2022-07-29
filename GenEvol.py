@@ -23,30 +23,32 @@ class GenEvol:
     Run specific functions from this class to move the simulation forward.
     '''
     def __init__(self, seed:int, boardSize:int, foodPerc:float, popSize:int, turns:int, mutations:float, bestToRemain:float, inequity:float, childPerCouple:float) -> None:
-
         #if pickle file present, load from there and return. else regenerate new.
         if os.path.exists('savefile.pkl') and input("Savefile found. Resume? Y/N") in ["yes", "Yes", "Y", "y"]:
-            with open('savefile.pkl', 'wb') as savefile:
-                self = pickle.load(self, savefile, pickle.HIGHEST_PROTOCOL)
+            with open('savefile.pkl', 'rb') as savefile:
+                self.__dict__ = pickle.load(savefile)
             myattrs = [x for x in  dir(self) if x[0] != "_"]
-            print("-------- A savefile was found. --------")
+            print("-------- A savefile was found AND loaded. --------")
             self.initialPrint()
+            self.newcsv = False
         else:
             # State Variables
+            # variables starting with V are not to be tracked in the csv
             self.popSize=popSize
             self.foodPerc=foodPerc
             self.allGenHigh=0
             self.currGenHigh=0
-            self.mutations = mutations,
-            self.bestToRemain = bestToRemain,
-            self.inequity = inequity,
+            self.mutations = mutations
+            self.bestToRemain = bestToRemain
+            self.inequity = inequity
             self.childPerCouple = childPerCouple
             self.gen=0
+            self.Vnewcsv = True
             
             #initialise world vars
-            self.mymap=MyCla.Map(seed,boardSize,foodPerc) #THIS MEANS MAP CANNOT BE UPDATED ONCE GAME STARTS UNLESS U DIRECTLY REFERENCE AND CHANGE IT.
-            self.players=[MyCla.Player() for i in range(popSize)] #randomly creates genes
-            self.games=[MyCla.Game(turns, player, self.mymap) for player in self.players] #create games based on the map and players provided
+            self.Vmymap=MyCla.Map(seed,boardSize,foodPerc) #THIS MEANS MAP CANNOT BE UPDATED ONCE GAME STARTS UNLESS U DIRECTLY REFERENCE AND CHANGE IT.
+            self.Vplayers=[MyCla.Player() for i in range(popSize)] #randomly creates genes
+            self.Vgames=[MyCla.Game(turns, player, self.Vmymap) for player in self.Vplayers] #create games based on the map and Vplayers provided
             
             
 
@@ -62,74 +64,67 @@ class GenEvol:
 
         for x in myattrs:
             if x in ['allGenHigh', 'bestToRemain', 'childPerCouple', 'currGenHigh', 'foodPerc', 'gen', 'inequity', 'mutations', 'popSize']:
-                print(x, " : ", getattr(self, x))
+                print(x, "\t: ", getattr(self, x))
         
         if input("Should the simulation proceed? Y/N") not in ["yes", "Yes", "Y", "y"]:
             sys.exit("Human entered NO.")
-        
-    def update(self, **kwargs):
-        '''
-        Possible attributes include: 'gen', 'mymap', 'players' (list), 'games' (list), 'allGenHigh', 'currGenHigh'.
-        '''
-        # Code to update self attributes via **kwargs
-        allowed_keys = {'gen', 'mymap', 'players', 'games', 'allGenHigh', 'currGenHigh'}
-        for attr, value in kwargs.items():
-            if attr in allowed_keys:
-                setattr(self, attr, value)
-            else:
-                raise Exception("'SimState' instance updated with out-of-bounds attribute: "+str(attr))
+        print()
 
     def save(self):
         with open('savefile.pkl', 'wb') as savefile:
-            pickle.dump(self, savefile, pickle.HIGHEST_PROTOCOL)
+            pickle.dump(self.__dict__, savefile, pickle.HIGHEST_PROTOCOL)
     
     def track(self):
         with open("scorefile.csv", "a+", newline='',) as scorefile:
             #Collect all stateVars and turn into dict so it can be auto populated into csv by DictWriter
-            allStateVars = [attr for attr in dir(self) if not callable(getattr(self, attr)) and not attr.startswith("__")]
+            allStateVars = [attr for attr in dir(self) if not callable(getattr(self, attr)) and not attr.startswith("__") and not attr.startswith("V")]
             allValues = [getattr(self, stateVar) for stateVar in allStateVars]
             dictToWrite = dict(zip(allStateVars, allValues))
             writer = csv.DictWriter(scorefile,fieldnames=allStateVars)
+            if self.Vnewcsv != False:
+                writer.writeheader()
+                self.Vnewcsv=False
             writer.writerow(dictToWrite)
 
     def runGames(self):
         # Run self.games in parallel
         gamePool = mp.Pool(int(mp.cpu_count()))
-        self.finGames = gamePool.map(MyCla.Game.runGame, self.games)
+        self.VfinGames = gamePool.map(MyCla.Game.runGame, self.Vgames)
         gamePool.close()
         gamePool.join()
 
     def sortGames(self):
         # Sort already-run games
-        self.sortedGames = sorted(self.finGames, key=lambda x: x.score, reverse=True) # descending
-        self.update(currGenHigh = self.sortedGames[0].score)
+        self.VsortedGames = sorted(self.VfinGames, key=lambda x: x.score, reverse=True) # descending
+        self.currGenHigh = self.VsortedGames[0].score
         if self.currGenHigh > self.allGenHigh: 
-            self.update(allGenHigh = self.currGenHigh)
+            self.allGenHigh = self.currGenHigh
     
     def geneAlgo(self):
-        self.newGen=[]
+        self.VnewGen=[]
         # keep some elites
         for n in range(round(self.bestToRemain*self.popSize)):
-            self.newGen.append(self.sortedGames[n].player)
+            self.VnewGen.append(self.VsortedGames[n].player)
         # Find and weight parents in a list based on their relative performance
-        offset = self.sortedGames[-1].score
-        weights = [round((player.score-offset)*inequity)+1 for player in self.sortedGames]
-        self.parentsGameList = random.sample(self.sortedGames, popSize, counts=weights)
+        offset = self.VsortedGames[-1].score
+        weights = [round((player.score-offset)*self.inequity)+1 for player in self.VsortedGames]
+        self.parentsGameList = random.sample(self.VsortedGames, self.popSize, counts=weights)
     
     def offspringMaker(self):
-        while len(self.newGen) < self.popSize:
-            nChild = round(self.childPerCouple*(self.popSize-len(self.newGen)))+1
+        while len(self.VnewGen) < self.popSize:
+            nChild = round(self.childPerCouple*(self.popSize-len(self.VnewGen)))+1
             player1 = self.parentsGameList[0].player
             gene2 = random.choice(self.parentsGameList).gene
-            self.newGen.extend(player1.reproduce(gene2, nChildren=nChild, nMutations=self.mutations))
+            self.VnewGen.extend(player1.reproduce(gene2, nChildren=nChild, nMutations=self.mutations))
             del(self.parentsGameList[0])
+        del(self.parentsGameList)
     
     def newCycle(self):
         self.gen+=1
-        self.update(players=self.newGen)
-        self.update()
+        self.Vplayers=self.VnewGen
         self.save()
         self.track()
+
         print("Current Generation:", self.gen)
         print("Current Generation Top: ", self.currGenHigh)
         print("All Generation Top: ", self.allGenHigh)
@@ -148,13 +143,18 @@ if __name__ == '__main__':
         inequity=0.1,
         childPerCouple=0.1
     )
-
+    running=True
     # run the simulation
-    myWorld.runGames()
-    myWorld.sortGames()
-    myWorld.geneAlgo()
-    myWorld.offspringMaker()
-    myWorld.newCycle()
+    while running:
+        try:
+            myWorld.runGames()
+            myWorld.sortGames()
+            myWorld.geneAlgo()
+            myWorld.offspringMaker()
+            myWorld.newCycle()
+        except KeyboardInterrupt:
+            print("Interrupted")
+            
 
 
 
